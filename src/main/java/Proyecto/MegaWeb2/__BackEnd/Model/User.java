@@ -3,12 +3,20 @@ package Proyecto.MegaWeb2.__BackEnd.Model;
 import com.google.api.client.util.DateTime;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
+@Entity
+@Table(name = "usuarios")
 public class User {
+	  @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
 	private int id;
 	private String nombres;
 	private String apellidos;
-	private String username;
 	private String password;
 	private String email;
 	private int idRol;
@@ -60,23 +68,6 @@ public class User {
 		this.apellidos = apellidos;
 	}
 
-	public String getUsername() {
-		return username;
-	}
-
-	private String idGoogle;
-
-	public String getIdGoogle() {
-		return idGoogle;
-	}
-
-	public void setIdGoogle(String idGoogle) {
-		this.idGoogle = idGoogle;
-	}
-
-	public void setUsername(String username) {
-		this.username = username;
-	}
 
 	public String getPassword() {
 		return password;
@@ -120,8 +111,7 @@ public class User {
 
 	@Override
 	public String toString() {
-		return "User [id=" + id + ", nombres=" + nombres + ", apellidos=" + apellidos + ", username=" + username
-				+ ", password=" + password + ", email=" + email + ", idRol=" + idRol + ", imagen=" + imagen + "]";
+		return "User [id=" + id + ", nombres=" + nombres + ", apellidos=" + apellidos + ", password=" + password + ", email=" + email + ", idRol=" + idRol + ", imagen=" + imagen + "]";
 	}
 
 }

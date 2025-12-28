@@ -29,22 +29,25 @@ public class UsuarioRepository {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
-	public int crearUsuario(UsuarioCreateRequestDTO dto) {
-		String sql = "CALL sp_crear_usuario(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-	Object[] params = new Object[]{
-		dto.getNombres(),
-		dto.getApellidos(),
-		dto.getUsername(),
-		dto.getPassword(),
-		dto.getEmail(),
-		dto.getSuscripcion(),
-		"defaultTema",   // tema obligatorio
-		"defaultJtable", // jtable obligatorio
-		"defaultImagen", // imagen obligatorio
-		1                // idRol por defecto
-	};
-		return jdbcTemplate.query(sql, params, rs -> rs.next() ? rs.getInt("idUsuario") : 0);
-	}
+public int crearUsuario(UsuarioCreateRequestDTO dto) {
+String sql = "CALL sp_crear_usuario(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+Object[] params = new Object[]{
+    dto.getNombres(),
+    dto.getApellidos(),
+    dto.getEmail(),         // username = email (o usa dto.getUsername() si lo tienes)
+    dto.getPassword(),
+    dto.getEmail(),
+    dto.getSuscripcion(),
+    "defaultTema",
+    "defaultJtable",
+    "defaultImagen",
+    dto.getIdRol()
+};
+
+
+    return jdbcTemplate.query(sql, params, rs -> rs.next() ? rs.getInt("idUsuario") : 0);
+}
+
 
 	public List<ListarUsuarioDTO> listarUsuarios(Integer id) {
 		return jdbcTemplate.query(
@@ -101,71 +104,12 @@ public class UsuarioRepository {
 		jdbcTemplate.update("CALL sp_eliminar_usuario(?)", id);
 	}
 
-	public boolean existeUsuarioPorIdGoogle(String idGoogle) {
-		String sql = "SELECT COUNT(*) FROM users WHERE idGoogle = ?";
-		Integer count = jdbcTemplate.queryForObject(sql, new Object[]{idGoogle}, Integer.class);
-		return count != null && count > 0;
-	}
-
-	public UsuarioDTO obtenerUsuarioPorIdGoogle(String idGoogle) {
-		String sql = "SELECT * FROM users WHERE idGoogle = ?";
-		return jdbcTemplate.queryForObject(
-				sql,
-				new Object[]{idGoogle},
-				new RowMapper<UsuarioDTO>() {
-					@Override
-					public UsuarioDTO mapRow(ResultSet rs, int rowNum) throws SQLException {
-						UsuarioDTO u = new UsuarioDTO();
-						u.setId(rs.getInt("id"));
-						u.setNombres(rs.getString("nombres"));
-						u.setUsername(rs.getString("username"));
-						u.setEmail(rs.getString("email"));
-						u.setIdGoogle(rs.getString("idGoogle"));
-						u.setRol(rs.getInt("idRol"));
-						u.setSuscripcion(rs.getInt("suscripcion"));
-						u.setTema(rs.getString("tema"));
-						u.setJTable(rs.getString("jtable"));
-						u.setImagen(rs.getString("imagen"));
-						u.setPasswordEncode(rs.getString("password"));
-						Date timestamp = rs.getTimestamp("expirationToken");
-						u.setExpirationToken(timestamp);
-						return u;
-					}
-				}
-		);
-	}
-
-	public void crearUsuarioDesdeGoogle(String nombre, String email, String idGoogle) {
-		String sql = """
-            INSERT INTO users (
-                nombres, apellidos, email, username,
-                password, idGoogle, idRol, suscripcion,
-                tema, jtable, imagen
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """;
-
-		jdbcTemplate.update(
-				sql,
-				nombre,         // nombres
-				"",             // apellidos
-				email,          // email
-				email,          // username
-				"auth",       // password placeholder
-				idGoogle,       // idGoogle
-				3,              // idRol por defecto
-				0,              // suscripcion
-				"",            // tema
-				"lightcolor/bootstra", // jtable
-				"0"            // imagen
-		);
-	}
-
 	/**
 	 * Busca un usuario por su username
 	 */
 public UsuarioDTO findByUsername(String hashedUsername) {
     final String sql = """
-        SELECT id, nombres, email, idGoogle, idRol, suscripcion, 
+        SELECT id, nombres, email, idRol, suscripcion, 
                tema, jtable, imagen, password AS passwordHash, expirationToken, two_factor_enabled, secret_2fa
         FROM users 
         WHERE username = ?
@@ -177,7 +121,6 @@ public UsuarioDTO findByUsername(String hashedUsername) {
             usuario.setId(rs.getInt("id"));
             usuario.setNombres(rs.getString("nombres"));
             usuario.setEmail(rs.getString("email"));
-            usuario.setIdGoogle(rs.getString("idGoogle"));
             usuario.setRol(rs.getInt("idRol"));
             usuario.setSuscripcion(rs.getInt("suscripcion"));
             usuario.setTema(rs.getString("tema"));
@@ -200,7 +143,7 @@ public UsuarioDTO findByUsername(String hashedUsername) {
 
 	public UsuarioDTO findByEmail(String email) {
     final String sql = """
-        SELECT id, nombres, email, idGoogle, idRol, suscripcion, 
+        SELECT id, nombres, email, idRol, suscripcion, 
                tema, jtable, imagen, password AS passwordHash, expirationToken
         FROM users 
         WHERE email = ?
@@ -212,7 +155,6 @@ public UsuarioDTO findByUsername(String hashedUsername) {
             usuario.setId(rs.getInt("id"));
             usuario.setNombres(rs.getString("nombres"));
             usuario.setEmail(rs.getString("email"));
-            usuario.setIdGoogle(rs.getString("idGoogle"));
             usuario.setRol(rs.getInt("idRol"));
             usuario.setSuscripcion(rs.getInt("suscripcion"));
             usuario.setTema(rs.getString("tema"));

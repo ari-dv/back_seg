@@ -79,7 +79,7 @@ public String validarYObtenerEmail(String token) {
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", user.getId());
-        claims.put("username", user.getUsername());
+        claims.put("username", user.getEmail());
         claims.put("nombres", user.getNombres());
         claims.put("apellidos", user.getApellidos());
         claims.put("idRol", user.getIdRol());
@@ -89,7 +89,7 @@ public String validarYObtenerEmail(String token) {
 
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(user.getUsername())
+                .setSubject(user.getEmail())
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(expiration))
                 .signWith(SECRET_KEY)

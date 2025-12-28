@@ -25,11 +25,9 @@ public class AuthService {
                 u.setId(rs.getInt("id"));
                 u.setNombres(rs.getString("nombres"));
                 u.setApellidos(rs.getString("apellidos"));
-                u.setUsername(rs.getString("username"));
                 u.setPassword(rs.getString("password"));
                 u.setEmail(rs.getString("email"));
                 u.setIdRol(rs.getInt("idRol"));
-                u.setIdGoogle(rs.getString("idGoogle")); // asegúrate de que este campo exista
                 return u;
             }
             return null;
@@ -37,10 +35,6 @@ public class AuthService {
 
         if (user == null) return null;
 
-        // 🚫 Verifica si el usuario fue creado por Google
-        if (user.getIdGoogle() != null && !user.getIdGoogle().isEmpty()) {
-            throw new RuntimeException("Este usuario debe iniciar sesión con Google.");
-        }
 
         if (!new BCryptPasswordEncoder().matches(password, user.getPassword())) {
             return null;
