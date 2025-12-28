@@ -6,13 +6,14 @@ import Proyecto.MegaWeb2.__BackEnd.Dto.ListarUsuarioDTO;
 import Proyecto.MegaWeb2.__BackEnd.Service.UsuarioService;
 import Proyecto.MegaWeb2.__BackEnd.Service.AuditService;
 import Proyecto.MegaWeb2.__BackEnd.Util.URLEncryptionUtil;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
+import Proyecto.MegaWeb2.__BackEnd.Security.UsuarioSesionUtil;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 
@@ -20,76 +21,160 @@ import java.util.Map;
 @RequestMapping("/api/auth/usuarios")
 public class UsuarioController {
 
-    private final UsuarioService usuarioService;
-    private final AuditService auditService;
+	private final UsuarioService usuarioService;
 
-    @Autowired
-    public UsuarioController(UsuarioService usuarioService, AuditService auditService) {
-        this.usuarioService = usuarioService;
-        this.auditService = auditService;
-    }
+	@Autowired
+	private AuditService auditService;
 
-    // --- Métodos de Ayuda ---
-    private String obtenerIPCliente(HttpServletRequest request) {
-        String xf = request.getHeader("X-Forwarded-For");
-        return (xf != null && !xf.isEmpty()) ? xf.split(",")[0].trim() : request.getRemoteAddr();
-    }
+	@Autowired
+	public UsuarioController(UsuarioService usuarioService) {
+		this.usuarioService = usuarioService;
+	}
 
-    // --- Endpoints ---
+	/**
+	 * Obtiene la IP del cliente
+	 */
+	private String obtenerIPCliente(HttpServletRequest request) {
+		String xForwardedFor = request.getHeader("X-Forwarded-For");
+		if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+			return xForwardedFor.split(",")[0].trim();
+		}
+		return request.getRemoteAddr();
+	}
 
-    @PostMapping
-    public ResponseEntity<?> crearUsuario(@Valid @RequestBody UsuarioCreateRequestDTO dto, HttpServletRequest request) {
-        int idUsuario = usuarioService.crearUsuario(dto);
-        if (idUsuario > 0) {
-            String idEncriptado = URLEncryptionUtil.encriptarId(idUsuario);
-            auditService.registrarEvento("SISTEMA", "CREAR_USUARIO", "Creado: " + dto.getEmail(), obtenerIPCliente(request), "/api/auth/usuarios", "POST");
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("idUsuario", idEncriptado));
-        }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "No se pudo crear el usuario"));
-    }
+	/**
+	 * Crea un nuevo usuario a partir del JSON recibido en el cuerpo y
+	 * devuelve un mapa con el id generado ENCRIPTADO.
+	 */
+	@PostMapping
+	public ResponseEntity<Map<String, String>> crearUsuario(
+			@RequestBody UsuarioCreateRequestDTO dto,
+			HttpServletRequest request
+	) {
+		String ipCliente = obtenerIPCliente(request);
+		
+		int idUsuario = usuarioService.crearUsuario(dto);
+		if (idUsuario > 0) {
+			// ✅ ENCRIPTAR EL ID ANTES DE DEVOLVERLO
+			String idEncriptado = URLEncryptionUtil.encriptarId(idUsuario);
+			
+			auditService.registrarEvento("SISTEMA", "CREAR_USUARIO", 
+				"Usuario creado: " + dto.getEmail(), ipCliente, "/api/auth/usuarios", "POST");
+			
+			return ResponseEntity
+					.status(HttpStatus.CREATED)
+					.body(Map.of("idUsuario", idEncriptado));
+		} else {
+			return ResponseEntity
+					.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(Map.of("error", "-1"));
+		}
+	}
 
-    @GetMapping
-    public ResponseEntity<List<ListarUsuarioDTO>> listarUsuarios(HttpServletRequest request) {
-        auditService.registrarAccesoRecurso("USUARIO", "/api/auth/usuarios", obtenerIPCliente(request));
-        return ResponseEntity.ok(usuarioService.listarUsuarios(null));
-    }
+	/**
+	 * Lista todos los usuarios.
+	 */
+	@GetMapping
+	public ResponseEntity<List<ListarUsuarioDTO>> listarUsuarios(HttpServletRequest request) {
+		String ipCliente = obtenerIPCliente(request);
+		auditService.registrarAccesoRecurso("USUARIO", "/api/auth/usuarios", ipCliente);
+		
+		List<ListarUsuarioDTO> lista = usuarioService.listarUsuarios(null);
+		return ResponseEntity.ok(lista);
+	}
 
-    @GetMapping("/{idEncriptado}")
-    public ResponseEntity<?> obtenerUsuario(@PathVariable String idEncriptado, HttpServletRequest request) {
-        Integer id = URLEncryptionUtil.desencriptarId(idEncriptado);
-        if (id == null) return ResponseEntity.badRequest().body(Map.of("error", "ID inválido"));
+	/**
+	 * Obtiene un usuario por su ID ENCRIPTADO.
+	 * 
+	 * CAMBIO: 
+	 * Antes: GET /api/auth/usuarios/5
+	 * Ahora: GET /api/auth/usuarios/Xy9-zRq2
+	 */
+	@GetMapping("/{idEncriptado}")
+	public ResponseEntity<?> obtenerUsuario(
+			@PathVariable String idEncriptado,
+			HttpServletRequest request
+	) {
+		String ipCliente = obtenerIPCliente(request);
+		
+		try {
+			// ✅ DESENCRIPTAR EL ID
+			Integer id = URLEncryptionUtil.desencriptarId(idEncriptado);
+			if (id == null) {
+				return ResponseEntity.status(400)
+					.body("{\"error\": \"ID inválido\"}");
+			}
 
-        List<ListarUsuarioDTO> lista = usuarioService.listarUsuarios(id);
-        if (lista.isEmpty()) return ResponseEntity.notFound().build();
+			List<ListarUsuarioDTO> lista = usuarioService.listarUsuarios(id);
+			if (lista.isEmpty()) {
+				return ResponseEntity.notFound().build();
+			}
 
-        auditService.registrarAccesoRecurso("USUARIO", "/api/auth/usuarios/" + id, obtenerIPCliente(request));
-        return ResponseEntity.ok(lista.get(0));
-    }
+			auditService.registrarAccesoRecurso("USUARIO", "/api/auth/usuarios/" + id, ipCliente);
+			return ResponseEntity.ok(lista.get(0));
+		} catch (Exception e) {
+			return ResponseEntity.status(400)
+				.body("{\"error\": \"Error al procesar la solicitud\"}");
+		}
+	}
 
-    @PutMapping
-    public ResponseEntity<?> editarUsuario(@Valid @RequestBody EditarUsuarioDTO dto, HttpServletRequest request) {
-        try {
-            usuarioService.editarUsuario(dto);
-            String usuarioLog = (String) request.getAttribute("username");
-            auditService.registrarEvento(usuarioLog, "ACTUALIZAR_USUARIO", "ID: " + dto.getId(), obtenerIPCliente(request), "/api/auth/usuarios", "PUT");
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Error al actualizar"));
-        }
-    }
+	/**
+	 * Actualiza un usuario existente.
+	 * El ID va encriptado en el DTO
+	 */
+	@PutMapping
+	public ResponseEntity<Map<String, String>> editarUsuario(
+			@RequestBody EditarUsuarioDTO dto,
+			HttpServletRequest request
+	) {
+		String ipCliente = obtenerIPCliente(request);
+		String usuario = (String) request.getAttribute("username");
+		
+		try {
+			usuarioService.editarUsuario(dto);
+			
+			auditService.registrarEvento(usuario, "ACTUALIZAR_USUARIO", 
+				"Usuario actualizado ID: " + dto.getId(), ipCliente, 
+				"/api/auth/usuarios", "PUT");
+			
+			return ResponseEntity.noContent().build();
+		} catch (Exception e) {
+			return ResponseEntity.status(400)
+				.body(Map.of("error", "Error al actualizar usuario"));
+		}
+	}
 
-    @DeleteMapping("/{idEncriptado}")
-    public ResponseEntity<?> eliminarUsuario(@PathVariable String idEncriptado, HttpServletRequest request) {
-        Integer id = URLEncryptionUtil.desencriptarId(idEncriptado);
-        if (id == null) return ResponseEntity.badRequest().body(Map.of("error", "ID inválido"));
+	/**
+	 * Elimina un usuario por su ID ENCRIPTADO.
+	 * 
+	 * CAMBIO:
+	 * Antes: DELETE /api/auth/usuarios/5
+	 * Ahora: DELETE /api/auth/usuarios/Xy9-zRq2
+	 */
+	@DeleteMapping("/{idEncriptado}")
+	public ResponseEntity<?> eliminarUsuario(
+			@PathVariable String idEncriptado,
+			HttpServletRequest request
+	) {
+		String ipCliente = obtenerIPCliente(request);
+		String usuario = (String) request.getAttribute("username");
+		
+		try {
+			// ✅ DESENCRIPTAR EL ID
+			Integer id = URLEncryptionUtil.desencriptarId(idEncriptado);
+			if (id == null) {
+				return ResponseEntity.status(400)
+					.body("{\"error\": \"ID inválido\"}");
+			}
 
-        try {
-            usuarioService.eliminarUsuario(id);
-            String usuarioLog = (String) request.getAttribute("username");
-            auditService.registrarEliminacion(usuarioLog, id, "USUARIO", obtenerIPCliente(request));
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Error al eliminar"));
-        }
-    }
+			usuarioService.eliminarUsuario(id);
+			
+			auditService.registrarEliminacion(usuario, id, "USUARIO", ipCliente);
+			
+			return ResponseEntity.noContent().build();
+		} catch (Exception e) {
+			return ResponseEntity.status(400)
+				.body("{\"error\": \"Error al eliminar usuario\"}");
+		}
+	}
 }
