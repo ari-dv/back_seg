@@ -29,6 +29,37 @@ public class UsuarioRepository {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
+    // 🔹 BUSCAR USUARIO POR SECRET 2FA
+    public UsuarioDTO findBySecret2FA(String secret2FA) {
+        String sql = """
+            SELECT id, nombres, apellidos, email, idRol, estado
+            FROM users
+            WHERE secret_2fa = ?
+        """;
+
+        return jdbcTemplate.query(sql, new Object[]{secret2FA}, rs -> {
+            if (rs.next()) {
+                UsuarioDTO dto = new UsuarioDTO();
+                dto.setId(rs.getInt("id"));
+                dto.setNombres(rs.getString("nombres"));
+                dto.setApellidos(rs.getString("apellidos"));
+                dto.setEmail(rs.getString("email"));
+                dto.setRol(rs.getInt("idRol"));
+                dto.setEstado(rs.getInt("estado"));
+                return dto;
+            }
+            return null;
+        });
+    }
+
+    // 🔹 LIMPIAR SECRET 2FA (recomendado)
+    public void updateSecret2FA(String email, String secret2FA) {
+        jdbcTemplate.update(
+            "UPDATE users SET secret_2fa = ? WHERE email = ?",
+            secret2FA, email
+        );
+    }
+
 public int crearUsuario(UsuarioCreateRequestDTO dto) {
     // Solo 6 parámetros según el procedimiento almacenado
     String sql = "CALL sp_crear_usuario(?, ?, ?, ?, ?, ?,?)";
@@ -192,11 +223,8 @@ public void actualizarPasswordPorEmail(String email, String password) {
 		String sql = "UPDATE users SET expirationToken = ? WHERE id = ?";
 		jdbcTemplate.update(sql, expirationToken, userId);
 	}
-@Transactional
-public void updateSecret2FA(String username, String secret) {
-    String sql = "UPDATE users SET secret_2fa = ? WHERE username = ?";
-    jdbcTemplate.update(sql, secret, username);
-}
+
+
 
 @Transactional
 public void updateTwoFactorEnabled(String username, boolean enabled) {

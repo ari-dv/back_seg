@@ -48,33 +48,47 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
         http
-            .cors().and()
+            .cors(cors -> {})
             .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(authz -> authz
-                    .requestMatchers(HttpMethod.OPTIONS, "/api/auth/**").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/restablecer-password").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/usuarios").permitAll()
-                    .requestMatchers(HttpMethod.GET,  "/api/usuarios").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/auth/generate-qr/**").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/verify-2fa/**").permitAll()
-                    // Otros recursos públicos
-                    .requestMatchers("/estilos.css", "/javascript.js", "/img/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/test/enviar").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/publicaciones").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/nosotros").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/productos/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/busquedas/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/consultas/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/clientes/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/comentarios").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/productos/{id}").permitAll()
-                    .anyRequest().authenticated()
+
+            .sessionManagement(sm ->
+                sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+            .authorizeHttpRequests(auth -> auth
+
+                // 🔓 AUTH (SIN JWT)
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/verify-2fa").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/restablecer-password").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/usuarios").permitAll()
+                .requestMatchers(HttpMethod.GET,  "/api/auth/generate-qr/**").permitAll()
+
+                // 🔓 ENDPOINTS PÚBLICOS
+                .requestMatchers("/estilos.css", "/javascript.js", "/img/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/test/enviar").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/publicaciones").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/nosotros").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/productos/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/busquedas/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/consultas/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/clientes/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/comentarios").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/productos/{id}").permitAll()
+
+                // 🔐 TODO LO DEMÁS REQUIERE JWT
+                .anyRequest().authenticated()
+            )
+
+            // 🔐 FILTRO JWT
+            .addFilterBefore(
+                new JwtAuthenticationFilter(jwtUtil),
+                UsernamePasswordAuthenticationFilter.class
+            );
 
         return http.build();
     }

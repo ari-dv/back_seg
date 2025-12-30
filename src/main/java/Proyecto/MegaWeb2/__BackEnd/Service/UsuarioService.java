@@ -133,14 +133,18 @@ public int crearUsuario(UsuarioCreateRequestDTO dto) {
     }
 
     // ================= 2FA =================
-    public void updateSecret2FA(String email, String secret) {
-        usuarioRepository.updateSecret2FA(email, secret);
-    }
-
-    public void updateTwoFactorEnabled(String email, boolean enabled) {
-        usuarioRepository.updateTwoFactorEnabled(email, enabled);
-    }
-
+public void updateSecret2FA(String email, String secret2FA) {
+    usuarioRepository.updateSecret2FA(email, secret2FA);
+}
+// Verifica si el código ingresado coincide con el secret_2fa
+public boolean verify2FACode(String codigoIngresado) {
+    String sql = "SELECT COUNT(*) FROM users WHERE secret_2fa = ?"; 
+    Integer count = jdbcTemplate.queryForObject(sql, new Object[]{codigoIngresado}, Integer.class);
+    return count != null && count > 0;
+}
+public void updateTwoFactorEnabled(String email, boolean enabled) {
+    usuarioRepository.updateTwoFactorEnabled(email, enabled);
+}
     // ================= TOKEN =================
     public void updateExpirationToken(String email, Date expirationToken) {
         usuarioRepository.actualizarExpirationToken(email, expirationToken);
