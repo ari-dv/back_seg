@@ -1,6 +1,6 @@
 package Proyecto.MegaWeb2.__BackEnd.Controller;
 
-import Proyecto.MegaWeb2.__BackEnd.Dto.AñadirComentarioDTO;
+import Proyecto.MegaWeb2.__BackEnd.Dto.AnadirComentarioDTO;
 import Proyecto.MegaWeb2.__BackEnd.Dto.ComentarioResponseDTO;
 import Proyecto.MegaWeb2.__BackEnd.Security.UsuarioSesionUtil;
 import Proyecto.MegaWeb2.__BackEnd.Service.ComentarioService;
@@ -42,7 +42,7 @@ public class ComentarioController {
 
     @Operation(summary = "Publicar un comentario (requiere autenticación y permiso de creación)")
     @PostMapping
-    public ResponseEntity<?> registrarComentario(@RequestBody AñadirComentarioDTO dto) {
+    public ResponseEntity<?> registrarComentario(@RequestBody AnadirComentarioDTO dto) {
         Integer idUsuario = UsuarioSesionUtil.getIdUsuarioActual();
         Integer idRol = UsuarioSesionUtil.getIdRolActual();
 
